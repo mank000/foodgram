@@ -1,9 +1,9 @@
 import django_filters
-from .models import Recipe
+from django.db.models import Count, Q
 from django_filters import rest_framework as filters
-from .models import Ingredient
-from django.db.models import Count
-from django.db.models import Q
+
+from .models import Ingredient, Recipe
+
 
 class RecipeFilter(django_filters.FilterSet):
     is_favorited = django_filters.BooleanFilter(
@@ -37,22 +37,18 @@ class RecipeFilter(django_filters.FilterSet):
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
         if value:
-            return queryset.filter(shopping_cart=self.request.user.shopping_cart)
+            return queryset.filter(
+                shopping_cart=self.request.user.shopping_cart
+            )
         return queryset
 
     def filter_by_tags(self, queryset, name, value):
         if isinstance(value, list) and value:
             tags = [tag.strip() for tag in value if tag.strip()]
-
-            # Создаем запрос для рецептов, содержащих все указанные теги
             query = Q()
             for tag in tags:
                 query &= Q(tags__slug=tag)
-
-            # Фильтруем рецепты по наличию всех тегов
             queryset = queryset.filter(query)
-
-            # Аннотируем количество тегов у каждого рецепта и фильтруем по точному совпадению
             queryset = queryset.annotate(num_tags=Count('tags')).filter(
                 num_tags=len(tags),
                 tags__slug__in=tags

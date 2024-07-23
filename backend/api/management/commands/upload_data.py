@@ -1,17 +1,18 @@
-
 import csv
+import os
+
 from django.core.management.base import BaseCommand
+from django.conf import settings
+
 from api.models import Ingredient
 
 
 class Command(BaseCommand):
     help = 'Импорт данных из CSV файла в базу данных'
 
-    def add_arguments(self, parser):
-        parser.add_argument('csv_file', type=str, help='Путь к CSV файлу')
-
     def handle(self, *args, **kwargs):
-        csv_file = kwargs['csv_file']
+        base_dir = os.path.dirname(settings.BASE_DIR)
+        csv_file = os.path.join(base_dir, 'data', 'ingredients.csv')
 
         with open(csv_file, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file)

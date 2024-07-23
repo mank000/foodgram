@@ -1,30 +1,21 @@
 from django.contrib import admin
-from django.urls import path, include
-from api.views import (
-    AvatarView,
-    GetTagsView,
-    GetTagDetailView,
-    GetIngredientsListView,
-    GetIngredientDetailView,
-    RecipeView,
-    FavoriteView,
-    ShoppingCartView,
-    SubscribeView,
-    SubscribeListView,
-    GetRecipeView,
-    GetRecipeLinkView,
-    UserProfile
-)
+from django.urls import include, path
+
+from api.views import (AvatarView, FavoriteView, GetIngredientDetailView,
+                       GetIngredientsListView, GetRecipeLinkView,
+                       GetRecipeView, GetTagDetailView, GetTagsView,
+                       RecipeView, ShoppingCartView, SubscribeListView,
+                       SubscribeView, UserProfile)
 
 Tags = [
-    path("", GetTagsView.as_view(), name="tag_list"),
-    path("<int:id>/", GetTagDetailView.as_view(), name="get_tag"),
+    path("", GetTagsView.as_view(), name="tag-list"),
+    path("<int:id>/", GetTagDetailView.as_view(), name="get-tag"),
 ]
 
 Ingredients = [
-    path("", GetIngredientsListView.as_view(), name="ingredients_list"),
+    path("", GetIngredientsListView.as_view(), name="ingredients-list"),
     path(
-        "<int:id>/", GetIngredientDetailView.as_view(), name="get_ingredient"
+        "<int:id>/", GetIngredientDetailView.as_view(), name="get-ingredient"
     ),
 ]
 
@@ -49,9 +40,11 @@ Recipes = [
     ),
     path("<int:id>/favorite/", FavoriteView.as_view(), name="favorite-recipe"),
     path("", RecipeView.as_view(), name="recipe"),
-    path("<int:id>/", GetRecipeView.as_view(), name="getrecipe"),
+    path("<int:id>/", GetRecipeView.as_view(), name="get-recipe"),
     path(
-        "<int:id>/get-link/", GetRecipeLinkView.as_view(), name="getrecipelink"
+        "<int:id>/get-link/",
+        GetRecipeLinkView.as_view(),
+        name="get-recipe-link"
     ),
 ]
 

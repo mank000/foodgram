@@ -1,15 +1,18 @@
-from rest_framework import serializers
-from djoser.serializers import UserCreateSerializer
-from django.contrib.auth import get_user_model
-from foodgram.const import MAX_LENGTH_EMAIL, MAX_LENGTH_SERIALIZERS
-from django.core.files.base import ContentFile
 import base64
-from rest_framework.validators import UniqueValidator
-from .models import Tag, Ingredient, RecipeToIngredient, Recipe
-from rest_framework.exceptions import ValidationError
-from django.db.models import F
-from users.models import Subscribe, Favorite, ShoppingCart
 import re
+
+from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.db.models import F
+from djoser.serializers import UserCreateSerializer
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from rest_framework.validators import UniqueValidator
+
+from foodgram.const import MAX_LENGTH_EMAIL, MAX_LENGTH_SERIALIZERS
+from users.models import Favorite, ShoppingCart, Subscribe
+
+from .models import Ingredient, Recipe, RecipeToIngredient, Tag
 
 User = get_user_model()
 
@@ -61,10 +64,7 @@ class UserCreateSerializer(UserCreateSerializer):
         )
 
     def validate_username(self, value):
-        """
-        Валидация имени пользователя с использованием регулярного выражения.S
-        """
-
+        """Валидация имени пользователя."""
         if not re.match(r"^[\w.@+-]+$", value):
             raise serializers.ValidationError("Выберите другой ник")
         return value

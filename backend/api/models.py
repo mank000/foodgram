@@ -1,15 +1,8 @@
-from django.db import models
-from django.core.validators import (
-    MinValueValidator,
-    RegexValidator,
-    MinLengthValidator,
-)
-from foodgram.const import (
-    MIN_TIME_TO_COOK,
-    MAX_LENGTH,
-    MAX_LENGTH_TAG,
-)
 from django.contrib.auth import get_user_model
+from django.core.validators import MinValueValidator, RegexValidator
+from django.db import models
+
+from foodgram.const import MAX_LENGTH, MAX_LENGTH_TAG, MIN_TIME_TO_COOK
 
 User = get_user_model()
 
@@ -30,12 +23,17 @@ class Tag(models.Model):
         unique=True,
         validators=[
             RegexValidator(
-                regex=r'^[-a-zA-Z0-9_]+$',
-                message=("Использование только латинских букв, "
-                         "цифр, подчеркивания и нижнего подчеркивания.")
+                regex=r"^[-a-zA-Z0-9_]+$",
+                message=(
+                    "Использование только латинских букв, "
+                    "цифр, подчеркивания и нижнего подчеркивания."
+                ),
             )
-        ]
+        ],
     )
+
+    def __str__(self):
+        return self.name
 
 
 class Ingredient(models.Model):
@@ -49,9 +47,12 @@ class Ingredient(models.Model):
     measurement_unit = models.CharField(
         verbose_name="Единица измерения",
         max_length=MAX_LENGTH,
-        default='',
+        default="",
         blank=False,
     )
+
+    def __str__(self):
+        return self.name
 
 
 class Recipe(models.Model):
@@ -61,26 +62,22 @@ class Recipe(models.Model):
         Ingredient,
         verbose_name="Ингредиенты",
         blank=False,
-        through='RecipeToIngredient',
-        related_name='ingredients'
+        through="RecipeToIngredient",
+        related_name="ingredients",
     )
     tags = models.ManyToManyField(
-        Tag,
-        verbose_name="Теги",
-        blank=False,
-        related_name='tags'
+        Tag, verbose_name="Теги", blank=False, related_name="tags"
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         verbose_name="Aвтор",
         blank=False,
-        related_name='recipe_author',
-        default=1, # Убрать
+        related_name="recipe_author",
     )
     image = models.ImageField(
         verbose_name="Фото",
-        upload_to='food/images',
+        upload_to="food/images",
         blank=False,
     )
     name = models.CharField(
@@ -96,10 +93,11 @@ class Recipe(models.Model):
     cooking_time = models.IntegerField(
         verbose_name="Время приготовления",
         blank=False,
-        validators=[
-            MinValueValidator(MIN_TIME_TO_COOK)
-        ]
+        validators=[MinValueValidator(MIN_TIME_TO_COOK)],
     )
+
+    def __str__(self):
+        return self.name
 
 
 class RecipeToIngredient(models.Model):
@@ -108,17 +106,16 @@ class RecipeToIngredient(models.Model):
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='ingredientlist',
+        related_name="ingredientlist",
     )
     ingredient = models.ForeignKey(
         Ingredient,
         on_delete=models.CASCADE,
-        related_name='ingredientlist',
+        related_name="ingredientlist",
     )
     amount = models.PositiveSmallIntegerField(
         blank=False,
         default=1,
-        validators=(
-            MinValueValidator(1),), # вынести в конст
-        verbose_name='Количество',
+        validators=(MinValueValidator(MIN_TIME_TO_COOK),),
+        verbose_name="Количество",
     )
