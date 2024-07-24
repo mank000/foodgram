@@ -1,58 +1,41 @@
-import django_filters
-from django.db.models import Count, Q
 from django_filters import rest_framework as filters
 
 from .models import Ingredient, Recipe
 
 
-class RecipeFilter(django_filters.FilterSet):
-    is_favorited = django_filters.BooleanFilter(
-        field_name='favorited_by__id',
-        method='filter_is_favorited',
-        required=False
-    )
-    is_in_shopping_cart = django_filters.BooleanFilter(
-        field_name='shopping_cart__id',
-        method='filter_is_in_shopping_cart',
-        required=False
-    )
-    author = django_filters.NumberFilter(
-        field_name='author__id',
-        lookup_expr='exact',
-        required=False
-    )
-    tags = django_filters.CharFilter(
-        method='filter_by_tags',
-        required=False
-    )
+class RecipeFilter(filters.FilterSet):
+    """Класс фильтра для рецептов."""
+
+    tags = filters.AllValuesMultipleFilter(field_name="tags__slug")
+    author = filters.AllValuesMultipleFilter(field_name="author__id")
+    is_favorited = filters.BooleanFilter(method="filter_is_special")
+    is_in_shopping_cart = filters.BooleanFilter(method="filter_is_special")
 
     class Meta:
         model = Recipe
-        fields = ['is_favorited', 'is_in_shopping_cart', 'author', 'tags']
+        fields = ("tags", "author", "is_favorited", "is_in_shopping_cart")
 
-    def filter_is_favorited(self, queryset, name, value):
-        if value:
-            return queryset.filter(favorited_by=self.request.user)
-        return queryset
+    def filter_is_special(self, queryset, name, value):
+        if not self.request.user.is_authenticated:
+            return queryset.none()
 
-    def filter_is_in_shopping_cart(self, queryset, name, value):
-        if value:
-            return queryset.filter(
-                shopping_cart=self.request.user.shopping_cart
+        filter_params = {}
+        if name == "is_favorited":
+            filter_params["favorite_recipes__user"] = (
+                self.request.user if value else None
             )
-        return queryset
+        elif name == "is_in_shopping_cart":
+            filter_params["shopping_list_recipes__user"] = (
+                self.request.user if value else None
+            )
 
-    def filter_by_tags(self, queryset, name, value):
-        if isinstance(value, list) and value:
-            tags = [tag.strip() for tag in value if tag.strip()]
-            query = Q()
-            for tag in tags:
-                query &= Q(tags__slug=tag)
-            queryset = queryset.filter(query)
-            queryset = queryset.annotate(num_tags=Count('tags')).filter(
-                num_tags=len(tags),
-                tags__slug__in=tags
-            ).distinct()
+        filter_params = {
+            k: v for k, v in filter_params.items() if v is not None
+        }
+
+        if filter_params:
+            return queryset.filter(**filter_params)
+
         return queryset
 
 

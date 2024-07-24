@@ -81,9 +81,10 @@ class RecipeView(RecipeMixin, generics.ListCreateAPIView):
     filterset_class = RecipeFilter
 
     def post(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
+        user = request.user
+        if not user.is_authenticated:
             return Response(
-                {"detail": "Аутентификация требуется"},
+                {"detail": "требуется аутентификация"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
         serializer = self.get_serializer(data=request.data)
@@ -94,7 +95,7 @@ class RecipeView(RecipeMixin, generics.ListCreateAPIView):
         tags = serializer_data.pop("tags")
 
         recipe = Recipe.objects.create(
-            **serializer_data, author=request.user
+            **serializer_data, author=user
         )
         recipe.tags.set(tags)
 
@@ -109,6 +110,7 @@ class RecipeView(RecipeMixin, generics.ListCreateAPIView):
                 recipe=recipe, ingredient=ingredient_obj, amount=amount
             )
         response_serializer = self.get_serializer(recipe)
+        ShoppingCart.objects.create(user=user, recipe=recipe)
         return Response(
             response_serializer.data, status=status.HTTP_201_CREATED
         )
@@ -355,7 +357,7 @@ class GetRecipeLinkView(APIView):
         return Response(
             {
                 "short-link": create_short_link(
-                    request.build_absolute_uri(f"/api/recipes/{id}/")
+                    request.build_absolute_uri(f"/recipes/{id}/")
                 )
             },
             status=status.HTTP_200_OK,
