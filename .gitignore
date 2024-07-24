@@ -140,3 +140,5 @@ dmypy.json
 
 static/
 media/
+backend/db1 — копия 2 2 — копия.sqlite3
+backend/shopping_list.pdf

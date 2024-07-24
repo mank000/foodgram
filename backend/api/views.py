@@ -246,17 +246,18 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
     def delete(self, request, id):
 
         user = request.user
-        recipe = Recipe.objects.filter(id=id)
+        recipe = Recipe.objects.filter(id=id).first()
 
-        if not recipe.exists():
+        if not recipe:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         cart_recipe = ShoppingCart.objects.filter(
-            user=user, recipe=recipe.first()
+            user=user, recipe=recipe
         )
 
         if not cart_recipe.exists():
             return Response(status=status.HTTP_400_BAD_REQUEST)
+
         cart_recipe.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
