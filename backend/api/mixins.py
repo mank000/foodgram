@@ -1,3 +1,5 @@
+from rest_framework.pagination import PageNumberPagination
+
 from .models import Ingredient, Recipe, Tag
 from .serializers import IngredientSerializer, RecipeSerializer, TagSerializer
 
@@ -21,5 +23,6 @@ class IngredientMixin:
 class RecipeMixin:
     """Миксин для рецептов."""
 
+    pagination_class = PageNumberPagination
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer

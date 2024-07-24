@@ -122,7 +122,6 @@ class GetRecipeView(
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
 ):
-
     permission_classes = [permissions.AllowAny]
     lookup_field = "id"
 
