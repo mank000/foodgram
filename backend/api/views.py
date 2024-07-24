@@ -269,13 +269,13 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
             return Response({"Корзина": "Корзина пуста."},
                             status=status.HTTP_200_OK)
         path = generate_shopping_list(recipes)
-        pdf_file = open(path, "rb")
+        pdf_file = open(str(path), 'rb')
         response = FileResponse(pdf_file, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="{pdf_file.name}"'
         )
 
-        return Response(response, status=status.HTTP_200_OK)
+        return response
 
 
 class SubscribeView(APIView):

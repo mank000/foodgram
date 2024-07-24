@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pathlib import Path
 
 import pyshorteners
@@ -9,9 +10,11 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate
 
 from .models import Ingredient, RecipeToIngredient
 
+DOT_SYMBOL = u'\u2022'
+
 
 def generate_shopping_list(recipes):
-    unique_ingredients = set()
+    ingredients_dict = defaultdict(lambda: defaultdict(int))
 
     for recipe in recipes.values():
         recipe_ingredients = RecipeToIngredient.objects.all().filter(
@@ -19,31 +22,23 @@ def generate_shopping_list(recipes):
         )
 
         for ingredient_mapping in recipe_ingredients.values():
-            ingredient_details = []
-            ingredient = Ingredient.objects.all().filter(
+            ingredient = Ingredient.objects.get(
                 id=ingredient_mapping.get('ingredient_id')
-            )[0]
-            ingredient_details.append(ingredient.name)
-            ingredient_details.append(ingredient_mapping.get('amount'))
-            ingredient_details.append(ingredient.measurement_unit)
-            unique_ingredients.add(frozenset(ingredient_details))
+            )
+            name = ingredient.name
+            unit = ingredient.measurement_unit
+            amount = ingredient_mapping.get('amount')
+
+            ingredients_dict[name][unit] += amount
 
     formatted_ingredients = []
 
-    for ingredient_set in unique_ingredients:
-        ingredient_line = [u"\u2022", "", "", "", "\n"]
-        for item in ingredient_set:
-            if isinstance(item, int):
-                ingredient_line[2] = item
-            elif isinstance(item, str) and len(item) > 3:
-                ingredient_line[1] = item
-            else:
-                ingredient_line[3] = item
-        formatted_line = " ".join(str(x) for x in ingredient_line)
-        formatted_ingredients.append(formatted_line)
+    for name, units in ingredients_dict.items():
+        for unit, amount in units.items():
+            ingredient_line = f"{DOT_SYMBOL} {name} {amount} {unit}\n"
+            formatted_ingredients.append(ingredient_line)
 
     pdf_path = Path("shopping_list.pdf")
-
     pdf_file = SimpleDocTemplate(str(pdf_path), pagesize=A4)
 
     styles = getSampleStyleSheet()
