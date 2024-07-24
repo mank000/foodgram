@@ -264,6 +264,7 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
     def get(self, request):
         user = request.user
         recipes = ShoppingCart.objects.filter(user=user)
+
         if not recipes.exists():
             return Response({"Корзина": "Корзина пуста."},
                             status=status.HTTP_200_OK)
