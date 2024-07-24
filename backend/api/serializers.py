@@ -139,7 +139,7 @@ class UserProfileSerializerWithRecipes(serializers.ModelSerializer):
         return Recipe.objects.filter(author=obj).count()
 
     def get_is_subscribed(self, obj):
-        return True
+        return Subscribe.objects.filter(user=obj).exists()
 
 
 class Base64ImageField(serializers.ImageField):
@@ -185,9 +185,6 @@ class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ("id", "name", "slug")
-
-
-# Дописать
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -257,7 +254,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         return value
 
     def to_representation(self, instance):
-        return RecipeReadSerializer(instance).data
+        return RecipeReadSerializer(instance, context=self.context).data
 
 
 class RecipeReadSerializer(serializers.ModelSerializer):
@@ -284,7 +281,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         )
 
     def get_author(self, obj):
-        print(obj.author)
         return UserRecipeReadSerializer(obj.author).data
 
     def get_ingredients(self, obj):
@@ -296,15 +292,19 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         )
         return ingredients
 
-    def get_is_favorited(self, instance):
-        #
+    def get_is_favorited(self, obj):
+        request = self.context.get('request', None)
+        user = request.user if request else None
+        if user and user.is_authenticated:
+            return Favorite.objects.filter(user=user, recipe=obj).exists()
+        return False
 
-        return True
-
-    def get_is_in_shopping_cart(self, instance):
-        #
-
-        return True
+    def get_is_in_shopping_cart(self, obj):
+        request = self.context.get('request', None)
+        user = request.user if request else None
+        if user and user.is_authenticated:
+            return ShoppingCart.objects.filter(user=user, recipe=obj).exists()
+        return False
 
 
 class RecipeShortReadSerializer(serializers.ModelSerializer):
@@ -396,13 +396,19 @@ class SubscibeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
 
         if isinstance(instance, User) and not instance.is_anonymous:
+            user = self.context.get('current_user')
             representation = super().to_representation(instance)
             representation["email"] = instance.email
             representation["id"] = instance.id
             representation["username"] = instance.username
             representation["first_name"] = instance.first_name
             representation["last_name"] = instance.last_name
-            representation["is_subscribed"] = True
+            if user and user.is_authenticated:
+                representation["is_subscribed"] = Subscribe.objects.filter(
+                    user=user, author=instance
+                ).exists()
+            else:
+                representation["is_subscribed"] = False
             representation["recipes_count"] = (
                 Recipe.objects.all().filter(author=instance).count()
             )

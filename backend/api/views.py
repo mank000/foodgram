@@ -237,7 +237,7 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
         if created:
             serializer = ShoppingCartSerializer(cart_recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:  # зименеить подиись
+        else:
             return Response(
                 {"detail": "Этот рецепт уже в вашей корзине."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -250,6 +250,7 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
 
         if not recipe.exists():
             return Response(status=status.HTTP_404_NOT_FOUND)
+
         cart_recipe = ShoppingCart.objects.filter(
             user=user, recipe=recipe.first()
         )
@@ -324,6 +325,11 @@ class SubscribeView(APIView):
 
         cart_recipe.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['current_user'] = self.request.user
+        return context
 
 
 class SubscribeListView(generics.ListAPIView):

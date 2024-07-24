@@ -8,35 +8,30 @@ class RecipeFilter(filters.FilterSet):
 
     tags = filters.AllValuesMultipleFilter(field_name="tags__slug")
     author = filters.AllValuesMultipleFilter(field_name="author__id")
-    is_favorited = filters.BooleanFilter(method="filter_is_special")
-    is_in_shopping_cart = filters.BooleanFilter(method="filter_is_special")
+    is_favorited = filters.BooleanFilter(method="filter_is_favorited")
+    is_in_shopping_cart = filters.BooleanFilter(
+        method="filter_is_in_shopping_cart"
+    )
 
     class Meta:
         model = Recipe
         fields = ("tags", "author", "is_favorited", "is_in_shopping_cart")
 
-    def filter_is_special(self, queryset, name, value):
+    def filter_is_favorited(self, queryset, name, value):
         if not self.request.user.is_authenticated:
-            return queryset.none()
+            return queryset.none() if value else queryset
 
-        filter_params = {}
-        if name == "is_favorited":
-            filter_params["favorite_recipes__user"] = (
-                self.request.user if value else None
-            )
-        elif name == "is_in_shopping_cart":
-            filter_params["shopping_list_recipes__user"] = (
-                self.request.user if value else None
-            )
+        if value:
+            return queryset.filter(favorites__user=self.request.user)
+        return queryset.exclude(favorites__user=self.request.user)
 
-        filter_params = {
-            k: v for k, v in filter_params.items() if v is not None
-        }
+    def filter_is_in_shopping_cart(self, queryset, name, value):
+        if not self.request.user.is_authenticated:
+            return queryset.none() if value else queryset
 
-        if filter_params:
-            return queryset.filter(**filter_params)
-
-        return queryset
+        if value:
+            return queryset.filter(shoppingcart__user=self.request.user)
+        return queryset.exclude(shoppingcart__user=self.request.user)
 
 
 class IngredientFilter(filters.FilterSet):
