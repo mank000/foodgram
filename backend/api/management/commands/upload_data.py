@@ -1,7 +1,6 @@
 import csv
 import os
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from api.models import Ingredient
@@ -11,7 +10,7 @@ class Command(BaseCommand):
     help = 'Импорт данных из CSV файла в базу данных'
 
     def handle(self, *args, **kwargs):
-        base_dir = os.path.dirname(settings.BASE_DIR)
+        base_dir = os.path.join('/app')
         csv_file = os.path.join(base_dir, 'data', 'ingredients.csv')
         with open(csv_file, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file)
