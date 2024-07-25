@@ -27,9 +27,9 @@ services:
   frontend:
     env_file: .env.example
     image: mank000/foodgram_frontend
-    command: cp -r /app/build/. /frontend_static/
+    command: cp -r /app/build/. /statisfiles/
     volumes:
-      - static:/frontend_static
+      - static:/staticfiles
   
   nginx:
     depends_on:
