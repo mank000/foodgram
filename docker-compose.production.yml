@@ -21,15 +21,15 @@ services:
     image: mank000/foodgram_backend
     env_file: .env.example
     volumes:
-      - static:/backend_static
+      - static:/backend_static/
       - media:/app/media/
   
   frontend:
     env_file: .env.example
     image: mank000/foodgram_frontend
-    command: cp -r /app/build/. /statisfiles/
+    command: cp -r /app/build/. /frontend_static/
     volumes:
-      - static:/staticfiles
+      - static:/frontend_static/
   
   nginx:
     depends_on:
@@ -40,5 +40,5 @@ services:
     ports:
       - 8000:80
     volumes:
-      - static:/staticfiles
+      - static:/staticfiles/
       - media:/app/media/
