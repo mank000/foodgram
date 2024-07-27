@@ -3,21 +3,23 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, mixins, permissions, status
-from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from users.models import Favorite, FoodGrammUser, ShoppingCart, Subscribe
+from rest_framework.pagination import PageNumberPagination
+from users.models import Favorite, ShoppingCart, Subscribe
 from .filters import IngredientFilter, RecipeFilter
-from .mixins import IngredientMixin, RecipeMixin, TagMixin
-from .models import Ingredient, Recipe, RecipeToIngredient
+from .mixins import IngredientMixin
+from .models import Recipe, RecipeToIngredient, Tag
 from .serializers import (AvatarSerializer, FavoriteSerializer,
                           ShoppingCartSerializer, SubscribeSerializer,
                           UserProfileSerializer,
-                          UserProfileSerializerWithRecipes)
+                          UserProfileSerializerWithRecipes,
+                          RecipeSerializer, TagSerializer)
 from .utils import (add_recipe_to_list, create_short_link,
                     generate_shopping_list, remove_recipe_from_list)
-
+from rest_framework import viewsets
+from .permissions import IsAuthenticatedOrAuthor
+from rest_framework.pagination import LimitOffsetPagination
 User = get_user_model()
 
 
@@ -42,20 +44,17 @@ class AvatarView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class GetTagsView(TagMixin, generics.ListAPIView):
-    """Получение тегов."""
+class TagViewSet(viewsets.ModelViewSet):
+    """ViewSet для работы с тегами."""
 
-    pass
-
-
-class GetTagDetailView(TagMixin, generics.RetrieveAPIView):
-    """Получение детальной информации о теге."""
-
-    lookup_field = "id"
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
+    pagination_class = None
+    lookup_field = 'id'
 
 
 class GetIngredientsListView(IngredientMixin, generics.ListAPIView):
-    """Получение списка ингредиентов."""
+    """ßПолучение списка ингредиентов."""
 
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
@@ -64,99 +63,68 @@ class GetIngredientsListView(IngredientMixin, generics.ListAPIView):
 class GetIngredientDetailView(IngredientMixin, generics.RetrieveAPIView):
     """Получение списка ингредиентов."""
 
-    lookup_field = "id"
+    lookup_field = 'id'
 
 
-class RecipeView(RecipeMixin, generics.ListCreateAPIView):
-
+class RecipeViewSet(viewsets.ModelViewSet):
+    queryset = Recipe.objects.all()
+    serializer_class = RecipeSerializer
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+    permission_classes = [IsAuthenticatedOrAuthor]
+    pagination_class = PageNumberPagination
 
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        if not user.is_authenticated:
-            return Response(
-                {"detail": "требуется аутентификация"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+    def perform_create(self, serializer):
+        ingredients_data = self.request.data.pop('ingredients', [])
+        tags_data = self.request.data.pop('tags', [])
+        recipe = serializer.save(author=self.request.user)
+        recipe.tags.set(tags_data)
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(author=user)
-
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-class GetRecipeView(
-    RecipeMixin,
-    generics.RetrieveAPIView,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-):
-    permission_classes = [permissions.AllowAny]
-    lookup_field = "id"
-
-    def patch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return Response(
-                {"detail": "требуется аутентификация"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-        return self.partial_update(request, *args, **kwargs)
+        recipe_ingredients = [
+            RecipeToIngredient(
+                recipe=recipe,
+                ingredient_id=ingredient['id'],
+                amount=ingredient['amount']
+            ) for ingredient in ingredients_data
+        ]
+        RecipeToIngredient.objects.bulk_create(recipe_ingredients)
 
     def update(self, request, *args, **kwargs):
         user = request.user
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer_data = serializer.validated_data
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
 
-        ingredients = serializer_data.pop("ingredients")
-        tags = serializer_data.pop("tags")
-
-        recipe = get_object_or_404(Recipe, id=kwargs.get("id"))
-        if user != recipe.author:
+        if user != instance.author:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
-        tags = serializer_data.get("tags", [])
-        for tag in tags:
-            recipe.tags.add(tag)
-        recipe.save()
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer_data = serializer.validated_data
+        ingredients_data = serializer_data.pop('ingredients', [])
+        tags_data = serializer_data.pop('tags', [])
 
-        recipeingredients = RecipeToIngredient.objects.filter(recipe=recipe)
-        for ingredient in ingredients:
-            ingredient_id = ingredient.get("id")
-            ingredient_obj = get_object_or_404(
-                Ingredient.objects.all(), pk=ingredient_id
-            )
-            amount = ingredient.get("amount")
+        self.perform_update(serializer)
+        instance.tags.set(tags_data)
 
-            isthereingredient = recipeingredients.filter(
-                ingredient=ingredient_obj
-            )
+        RecipeToIngredient.objects.filter(recipe=instance).delete()
+        recipe_ingredients = [
+            RecipeToIngredient(
+                recipe=instance,
+                ingredient_id=ingredient['id'],
+                amount=ingredient['amount']
+            ) for ingredient in ingredients_data
+        ]
+        RecipeToIngredient.objects.bulk_create(recipe_ingredients)
 
-            if isthereingredient.exists():
-                item = isthereingredient.first()
-                item.amount += amount
-                item.save()
-            else:
-                RecipeToIngredient.objects.create(
-                    recipe=recipe, ingredient=ingredient_obj, amount=amount
-                )
-        response_serilizer = self.get_serializer(recipe)
-        return Response(response_serilizer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data)
 
-    def delete(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return Response(
-                {"detail": "требуется аутентификация"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-        recipe = get_object_or_404(Recipe, id=kwargs.get("id"))
-        user = request.user
-        author = recipe.author
-        if user == author:
-            return self.destroy(request, *args, **kwargs)
-        return Response(status=status.HTTP_403_FORBIDDEN)
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user != instance.author:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class FavoriteView(APIView):
@@ -189,67 +157,21 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
         recipes = ShoppingCart.objects.filter(user=user)
 
         if not recipes.exists():
-            return Response({"Корзина": "Корзина пуста."},
+            return Response({'Корзина': 'Корзина пуста.'},
                             status=status.HTTP_200_OK)
 
         pdf_buffer = generate_shopping_list(recipes)
-        response = FileResponse(pdf_buffer, content_type="application/pdf")
-        response["Content-Disposition"] = (
+        response = FileResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = (
             'attachment; filename="shopping_list.pdf"'
         )
 
         return response
 
 
-class SubscribeView(APIView):
-
+class SubscribeViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, id):
-        user = request.user
-        author = get_object_or_404(User, id=id)
-        if user == author:
-            return Response(
-                {"Подписка": "Нельзя подписаться на самого себя!"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        subscription, created = Subscribe.objects.get_or_create(
-            user=user, author=author
-        )
-        if created:
-            serializer = SubscribeSerializer(
-                author,
-                context=self.get_serializer_context(),
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(
-            {"Подписка": "Вы уже подписаны."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    def delete(self, request, id):
-        author = get_object_or_404(FoodGrammUser, id=id)
-        cart_recipe = Subscribe.objects.filter(
-            user=request.user, author=author
-        )
-        if not cart_recipe.exists():
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        cart_recipe.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['current_user'] = self.request.user
-        return context
-
-
-class SubscribeListView(generics.ListAPIView):
-
-    permission_classes = [permissions.IsAuthenticated]
-
     serializer_class = UserProfileSerializerWithRecipes
-
     pagination_class = LimitOffsetPagination
 
     def get_queryset(self):
@@ -260,13 +182,49 @@ class SubscribeListView(generics.ListAPIView):
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(
-                page, many=True, context={"request": request}
-            )
+                page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(
-            queryset, many=True, context={"request": request}
-        )
+            queryset, many=True, context={'request': request})
         return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        user = request.user
+        author_id = self.kwargs.get('id')
+        author = get_object_or_404(User, id=author_id)
+        if user == author:
+            return Response(
+                {'Подписка': 'Нельзя подписаться на самого себя!'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        subscription, created = Subscribe.objects.get_or_create(
+            user=user, author=author)
+        if created:
+            serializer = SubscribeSerializer(
+                author, context=self.get_serializer_context())
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(
+            {'Подписка': 'Вы уже подписаны.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        author_id = self.kwargs.get('id')
+        author = get_object_or_404(User, id=author_id)
+        subscription = Subscribe.objects.filter(
+            user=request.user, author=author)
+        if subscription.exists():
+            subscription.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {'Подписка': 'Вы не подписаны на данного пользователя.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['current_user'] = self.request.user
+        return context
 
 
 class GetRecipeLinkView(APIView):
@@ -274,8 +232,8 @@ class GetRecipeLinkView(APIView):
     def get(self, request, id):
         return Response(
             {
-                "short-link": create_short_link(
-                    request.build_absolute_uri(f"/recipes/{id}/")
+                'short-link': create_short_link(
+                    request.build_absolute_uri(f'/recipes/{id}/')
                 )
             },
             status=status.HTTP_200_OK,

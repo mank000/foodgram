@@ -14,7 +14,6 @@ from rest_framework.response import Response
 
 from users.models import Subscribe
 from .models import Recipe, RecipeToIngredient
-from .serializers import RecipeShortReadSerializer
 
 DOT_SYMBOL = u'\u2022'
 
@@ -39,7 +38,7 @@ def generate_shopping_list(recipes):
 
     for name, units in ingredients_dict.items():
         for unit, amount in units.items():
-            ingredient_line = f"{DOT_SYMBOL} {name} {amount} {unit}\n"
+            ingredient_line = f'{DOT_SYMBOL} {name} {amount} {unit}\n'
             formatted_ingredients.append(ingredient_line)
 
     buffer = BytesIO()
@@ -47,7 +46,7 @@ def generate_shopping_list(recipes):
 
     styles = getSampleStyleSheet()
     normal_style = styles['Normal']
-    pdfmetrics.registerFont(TTFont('TimesNewRoman', "Fonts/TimesNewRoman.ttf"))
+    pdfmetrics.registerFont(TTFont('TimesNewRoman', 'Fonts/TimesNewRoman.ttf'))
     normal_style.fontName = 'TimesNewRoman'
 
     paragraphs = [
@@ -64,15 +63,15 @@ def create_short_link(full_link):
 
 
 def get_recipes_for_serializer(self, obj):
-    recipes = Recipe.objects.filter(author=obj.author)
-    recipes_limit = self.context.get("recipes_limit")
+    recipes = Recipe.objects.filter(author=obj)
+    recipes_limit = self.context.get('recipes_limit')
     if recipes_limit is not None:
         try:
             recipes_limit = int(recipes_limit)
             recipes = recipes[:recipes_limit]
         except ValueError:
             pass
-    return RecipeShortReadSerializer(recipes, many=True).data
+    return recipes
 
 
 def get_is_subscribet_for_serizlizer(self, obj):
@@ -89,7 +88,7 @@ def add_recipe_to_list(model, user, recipe_id, serializer_class):
         serializer = serializer_class(item)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(
-        {"detail": "Этот рецепт уже в вашей коллекции."},
+        {'detail': 'Этот рецепт уже в вашей коллекции.'},
         status=status.HTTP_400_BAD_REQUEST,
     )
 
