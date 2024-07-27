@@ -55,7 +55,7 @@ class Favorite(models.Model):
     user = models.ForeignKey(
         FoodGrammUser,
         on_delete=models.CASCADE,
-        related_name='favorite',
+        related_name='favorites',
         verbose_name='Пользователь'
     )
 
@@ -65,6 +65,9 @@ class Favorite(models.Model):
         related_name='favorites',
         verbose_name='Рецепт'
     )
+
+    class Meta:
+        unique_together = ['user', 'recipe']
 
 
 class ShoppingCart(models.Model):
@@ -80,3 +83,6 @@ class ShoppingCart(models.Model):
         related_name='shopping_cart',
         verbose_name='Рецепт'
     )
+
+    class Meta:
+        unique_together = ['user', 'recipe']

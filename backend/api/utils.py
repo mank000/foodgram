@@ -1,35 +1,36 @@
 from collections import defaultdict
-from pathlib import Path
-
+from django.shortcuts import get_object_or_404
 import pyshorteners
+from django.db.models import Sum
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate
-
-from .models import Ingredient, RecipeToIngredient
-
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Recipe, RecipeToIngredient
+from users.models import Subscribe
+from io import BytesIO
+from .serializers import RecipeShortReadSerializer
 DOT_SYMBOL = u'\u2022'
 
 
 def generate_shopping_list(recipes):
+    recipe_ids = [recipe.get('recipe_id') for recipe in recipes.values()]
+
+    ingredient_data = RecipeToIngredient.objects.filter(
+        recipe__in=recipe_ids).values(
+        'ingredient__name', 'ingredient__measurement_unit'
+    ).annotate(total_amount=Sum('amount'))
+
     ingredients_dict = defaultdict(lambda: defaultdict(int))
 
-    for recipe in recipes.values():
-        recipe_ingredients = RecipeToIngredient.objects.all().filter(
-            recipe=recipe.get('recipe_id')
-        )
-
-        for ingredient_mapping in recipe_ingredients.values():
-            ingredient = Ingredient.objects.get(
-                id=ingredient_mapping.get('ingredient_id')
-            )
-            name = ingredient.name
-            unit = ingredient.measurement_unit
-            amount = ingredient_mapping.get('amount')
-
-            ingredients_dict[name][unit] += amount
+    for item in ingredient_data:
+        name = item['ingredient__name']
+        unit = item['ingredient__measurement_unit']
+        amount = item['total_amount']
+        ingredients_dict[name][unit] += amount
 
     formatted_ingredients = []
 
@@ -38,8 +39,8 @@ def generate_shopping_list(recipes):
             ingredient_line = f"{DOT_SYMBOL} {name} {amount} {unit}\n"
             formatted_ingredients.append(ingredient_line)
 
-    pdf_path = Path("shopping_list.pdf")
-    pdf_file = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+    buffer = BytesIO()
+    pdf_file = SimpleDocTemplate(buffer, pagesize=A4)
 
     styles = getSampleStyleSheet()
     normal_style = styles['Normal']
@@ -50,9 +51,50 @@ def generate_shopping_list(recipes):
         Paragraph(line, normal_style) for line in formatted_ingredients
     ]
     pdf_file.build(paragraphs)
-    return pdf_path.resolve()
+    buffer.seek(0)
+    return buffer
 
 
 def create_short_link(full_link):
     shortener = pyshorteners.Shortener()
     return shortener.tinyurl.short(full_link)
+
+
+def get_recipes_for_serializer(self, obj):
+    recipes = Recipe.objects.filter(author=obj.author)
+    recipes_limit = self.context.get("recipes_limit")
+    if recipes_limit is not None:
+        try:
+            recipes_limit = int(recipes_limit)
+            recipes = recipes[:recipes_limit]
+        except ValueError:
+            pass
+    return RecipeShortReadSerializer(recipes, many=True).data
+
+
+def get_is_subscribet_for_serizlizer(self, obj):
+    user = self.context.get('current_user')
+    return Subscribe.objects.filter(
+        user=user, author=obj.author
+    ).exists() if user and user.is_authenticated else False
+
+
+def add_recipe_to_list(model, user, recipe_id, serializer_class):
+    recipe = get_object_or_404(Recipe, id=recipe_id)
+    item, created = model.objects.get_or_create(user=user, recipe=recipe)
+    if created:
+        serializer = serializer_class(item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(
+        {"detail": "Этот рецепт уже в вашей коллекции."},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+def remove_recipe_from_list(model, user, recipe_id):
+    recipe = get_object_or_404(Recipe, id=recipe_id)
+    item = model.objects.filter(user=user, recipe=recipe)
+    if not item.exists():
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+    item.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

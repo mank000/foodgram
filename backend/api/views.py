@@ -8,15 +8,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.models import Favorite, FoodGrammUser, ShoppingCart, Subscribe
-
 from .filters import IngredientFilter, RecipeFilter
 from .mixins import IngredientMixin, RecipeMixin, TagMixin
 from .models import Ingredient, Recipe, RecipeToIngredient
 from .serializers import (AvatarSerializer, FavoriteSerializer,
-                          ShoppingCartSerializer, SubscibeSerializer,
+                          ShoppingCartSerializer, SubscribeSerializer,
                           UserProfileSerializer,
                           UserProfileSerializerWithRecipes)
-from .utils import create_short_link, generate_shopping_list
+from .utils import (create_short_link, generate_shopping_list,
+                    add_recipe_to_list, remove_recipe_from_list)
+
 
 User = get_user_model()
 
@@ -28,20 +29,12 @@ class AvatarView(APIView):
     serializer_class = AvatarSerializer
 
     def put(self, request, *args, **kwargs):
-        user = request.user
-
-        serializer = AvatarSerializer(user, data=request.data, partial=True)
-
-        if serializer.is_valid():
-            if not request.data:
-                return Response(
-                    serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                )
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(
-            serializer.errors, status=status.HTTP_400_BAD_REQUEST
+        serializer = AvatarSerializer(
+            request.user, data=request.data, partial=True
         )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def delete(self, request, *args, **kwargs):
         user = request.user
@@ -87,33 +80,12 @@ class RecipeView(RecipeMixin, generics.ListCreateAPIView):
                 {"detail": "требуется аутентификация"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer_data = serializer.validated_data
+        serializer.save(author=user)
 
-        ingredients = serializer_data.pop("ingredients")
-        tags = serializer_data.pop("tags")
-
-        recipe = Recipe.objects.create(
-            **serializer_data, author=user
-        )
-        recipe.tags.set(tags)
-
-        for ingredient in ingredients:
-            ingredient_id = ingredient.get("id")
-            ingredient_obj = get_object_or_404(
-                Ingredient.objects.all(), pk=ingredient_id
-            )
-            amount = ingredient.get("amount")
-
-            RecipeToIngredient.objects.create(
-                recipe=recipe, ingredient=ingredient_obj, amount=amount
-            )
-        response_serializer = self.get_serializer(recipe)
-        ShoppingCart.objects.create(user=user, recipe=recipe)
-        return Response(
-            response_serializer.data, status=status.HTTP_201_CREATED
-        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class GetRecipeView(
@@ -134,7 +106,6 @@ class GetRecipeView(
         return self.partial_update(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-
         user = request.user
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -194,31 +165,12 @@ class FavoriteView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, id):
-        user = request.user
-        recipe = generics.get_object_or_404(Recipe, id=id)
-        favorite, created = Favorite.objects.get_or_create(
-            user=user, recipe=recipe
+        return add_recipe_to_list(
+            Favorite, request.user, id, FavoriteSerializer
         )
 
-        if created:
-            return Response(
-                FavoriteSerializer(favorite).data,
-                status=status.HTTP_201_CREATED,
-            )
-        else:
-            return Response(
-                {"detail": "This recipe is already in your favorites."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
     def delete(self, request, id):
-        user = request.user
-        recipe = get_object_or_404(Recipe, id=id)
-        favorite = Favorite.objects.filter(user=user, recipe=recipe)
-        if not favorite.exists():
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-        favorite.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return remove_recipe_from_list(Favorite, request.user, id)
 
 
 class ShoppingCartView(APIView, mixins.DestroyModelMixin):
@@ -226,39 +178,12 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, id):
-        user = request.user
-        recipe = get_object_or_404(Recipe, id=id)
-
-        cart_recipe, created = ShoppingCart.objects.get_or_create(
-            user=user, recipe=recipe
+        return add_recipe_to_list(
+            ShoppingCart, request.user, id, ShoppingCartSerializer
         )
-
-        if created:
-            serializer = ShoppingCartSerializer(cart_recipe)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(
-                {"detail": "Этот рецепт уже в вашей корзине."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
     def delete(self, request, id):
-
-        user = request.user
-        recipe = Recipe.objects.filter(id=id).first()
-
-        if not recipe:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-        cart_recipe = ShoppingCart.objects.filter(
-            user=user, recipe=recipe
-        )
-
-        if not cart_recipe.exists():
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        cart_recipe.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return remove_recipe_from_list(ShoppingCart, request.user, id)
 
     def get(self, request):
         user = request.user
@@ -267,11 +192,11 @@ class ShoppingCartView(APIView, mixins.DestroyModelMixin):
         if not recipes.exists():
             return Response({"Корзина": "Корзина пуста."},
                             status=status.HTTP_200_OK)
-        path = generate_shopping_list(recipes)
-        pdf_file = open(str(path), 'rb')
-        response = FileResponse(pdf_file, content_type="application/pdf")
+
+        pdf_buffer = generate_shopping_list(recipes)
+        response = FileResponse(pdf_buffer, content_type="application/pdf")
         response["Content-Disposition"] = (
-            f'attachment; filename="{pdf_file.name}"'
+            'attachment; filename="shopping_list.pdf"'
         )
 
         return response
@@ -286,41 +211,28 @@ class SubscribeView(APIView):
         author = get_object_or_404(User, id=id)
         if user == author:
             return Response(
-                {"Подписка": "Нельзя подпиаться на самого себя!"},
+                {"Подписка": "Нельзя подписаться на самого себя!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        cart_recipe, created = Subscribe.objects.get_or_create(
+        subscription, created = Subscribe.objects.get_or_create(
             user=user, author=author
         )
         if created:
-            recipes_limit = request.query_params.get("recipes_limit")
-            if recipes_limit is not None:
-                try:
-                    recipes_limit = int(recipes_limit)
-                except ValueError:
-                    recipes_limit = None
-            else:
-                recipes_limit = None
-            return Response(
-                SubscibeSerializer(
-                    author,
-                    context={
-                        "request": request,
-                        "recipes_limit": recipes_limit,
-                    },
-                ).data,
-                status=status.HTTP_201_CREATED,
+            serializer = SubscribeSerializer(
+                author,
+                context=self.get_serializer_context(),
             )
-        else:
-            return Response(
-                {"Подписка": "Вы уже подписаны."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(
+            {"Подписка": "Вы уже подписаны."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     def delete(self, request, id):
-        user = request.user
         author = get_object_or_404(FoodGrammUser, id=id)
-        cart_recipe = Subscribe.objects.filter(user=user, author=author)
+        cart_recipe = Subscribe.objects.filter(
+            user=request.user, author=author
+        )
         if not cart_recipe.exists():
             return Response(status=status.HTTP_400_BAD_REQUEST)
 

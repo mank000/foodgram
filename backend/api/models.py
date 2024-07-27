@@ -11,22 +11,22 @@ class Tag(models.Model):
     """Модель тега."""
 
     name = models.CharField(
-        verbose_name="Название",
+        verbose_name='Название',
         max_length=MAX_LENGTH_TAG,
         unique=True,
         blank=False,
     )
     slug = models.SlugField(
-        verbose_name="Слаг",
+        verbose_name='Слаг',
         max_length=MAX_LENGTH_TAG,
         blank=False,
         unique=True,
         validators=[
             RegexValidator(
-                regex=r"^[-a-zA-Z0-9_]+$",
+                regex=r'^[-a-zA-Z0-9_]+$',
                 message=(
-                    "Использование только латинских букв, "
-                    "цифр, подчеркивания и нижнего подчеркивания."
+                    'Использование только латинских букв, '
+                    'цифр, подчеркивания и нижнего подчеркивания.'
                 ),
             )
         ],
@@ -40,14 +40,14 @@ class Ingredient(models.Model):
     """Модель ингредиента."""
 
     name = models.CharField(
-        verbose_name="Название",
+        verbose_name='Название',
         max_length=MAX_LENGTH,
         blank=False,
     )
     measurement_unit = models.CharField(
-        verbose_name="Единица измерения",
+        verbose_name='Единица измерения',
         max_length=MAX_LENGTH,
-        default="",
+        default='',
         blank=False,
     )
 
@@ -60,48 +60,48 @@ class Recipe(models.Model):
 
     ingredients = models.ManyToManyField(
         Ingredient,
-        verbose_name="Ингредиенты",
+        verbose_name='Ингредиенты',
         blank=False,
-        through="RecipeToIngredient",
-        related_name="ingredients",
+        through='RecipeToIngredient',
+        related_name='recipe',
     )
     tags = models.ManyToManyField(
-        Tag, verbose_name="Теги", blank=False, related_name="tags"
+        Tag, verbose_name='Теги', blank=False, related_name='tags'
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        verbose_name="Aвтор",
+        verbose_name='Aвтор',
         blank=False,
-        related_name="recipe_author",
+        related_name='recipe',
     )
     image = models.ImageField(
-        verbose_name="Фото",
-        upload_to="food/images",
+        verbose_name='Фото',
+        upload_to='food/images',
         blank=False,
     )
     name = models.CharField(
         max_length=MAX_LENGTH,
-        verbose_name="Название",
+        verbose_name='Название',
         blank=False,
     )
     text = models.TextField(
-        verbose_name="Описание",
+        verbose_name='Описание',
         max_length=MAX_LENGTH,
         blank=False,
     )
     cooking_time = models.IntegerField(
-        verbose_name="Время приготовления",
+        verbose_name='Время приготовления',
         blank=False,
         validators=[MinValueValidator(MIN_TIME_TO_COOK)],
     )
     pub_date = models.DateTimeField(
-        "Дата публикации",
+        'Дата публикации',
         auto_now_add=True,
     )
 
     class Meta:
-        ordering = ("-pub_date",)
+        ordering = ('-pub_date',)
 
     def __str__(self):
         return self.name
@@ -113,16 +113,19 @@ class RecipeToIngredient(models.Model):
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name="ingredientlist",
+        related_name='ingredient_list',
     )
     ingredient = models.ForeignKey(
         Ingredient,
         on_delete=models.CASCADE,
-        related_name="ingredientlist",
+        related_name='ingredient_list',
     )
     amount = models.PositiveSmallIntegerField(
         blank=False,
         default=1,
         validators=(MinValueValidator(MIN_TIME_TO_COOK),),
-        verbose_name="Количество",
+        verbose_name='Количество',
     )
+
+    class Meta:
+        unique_together = ['recipe', 'ingredient']

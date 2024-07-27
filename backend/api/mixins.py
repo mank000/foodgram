@@ -2,6 +2,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from .models import Ingredient, Recipe, Tag
 from .serializers import IngredientSerializer, RecipeSerializer, TagSerializer
+from .permissions import IsAuthorOrReadOnly
 
 
 class TagMixin:
@@ -26,3 +27,4 @@ class RecipeMixin:
     pagination_class = PageNumberPagination
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
+    permission_classes = [IsAuthorOrReadOnly]

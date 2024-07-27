@@ -2,7 +2,6 @@ import csv
 import os
 
 from django.core.management.base import BaseCommand
-
 from api.models import Ingredient
 
 
@@ -11,33 +10,24 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         base_dir = os.path.join('/app')
-        csv_file = os.path.join(base_dir, 'data', 'ingredients.csv')
-        with open(csv_file, mode='r', encoding='utf-8') as file:
-            reader = csv.DictReader(file)
-            a = next(iter(reader))
+        csv_file_path = os.path.join(base_dir, 'data', 'ingredients.csv')
 
-            try:
-                Ingredient.objects.create(
-                    name=list(a.keys())[0],
-                    measurement_unit=list(a.keys())[1],
-                )
-                Ingredient.objects.create(
-                    name=list(a.values())[0],
-                    measurement_unit=list(a.values())[1],
-                )
-            except Exception as e:
-                self.stdout.write(f'Ошибка при сохранении: {e}')
+        with open(csv_file_path, mode='r', encoding='utf-8') as csv_file:
+            csv_reader = csv.DictReader(csv_file)
 
-            for row in reader:
+            for row in csv_reader:
                 try:
-                    Ingredient.objects.create(
-                        name=list(row.values())[0],
-                        measurement_unit=list(row.values())[1],
-                    )
-                except Exception:
-                    Ingredient.objects.create(
-                        name=list(row.values())[0],
-                        measurement_unit='',
-                    )
+                    ingredient_name = row['name']
+                    measurement_unit = row['measurement_unit']
 
+                    Ingredient.objects.create(
+                        name=ingredient_name,
+                        measurement_unit=measurement_unit,
+                    )
+                except Exception as e:
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f'Ошибка при сохранении ингредиента: {e}'
+                        )
+                    )
         self.stdout.write(self.style.SUCCESS('Данные успешно импортированы'))

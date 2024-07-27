@@ -6,11 +6,11 @@ from .models import Ingredient, Recipe
 class RecipeFilter(filters.FilterSet):
     """Класс фильтра для рецептов."""
 
-    tags = filters.AllValuesMultipleFilter(field_name="tags__slug")
-    author = filters.AllValuesMultipleFilter(field_name="author__id")
-    is_favorited = filters.BooleanFilter(method="filter_is_favorited")
+    tags = filters.AllValuesMultipleFilter(field_name='tags__slug')
+    author = filters.AllValuesMultipleFilter(field_name='author__id')
+    is_favorited = filters.BooleanFilter(method='filter_is_favorited')
     is_in_shopping_cart = filters.BooleanFilter(
-        method="filter_is_in_shopping_cart"
+        method='filter_is_in_shopping_cart'
     )
 
     def filter_is_favorited(self, queryset, name, value):
@@ -25,7 +25,7 @@ class RecipeFilter(filters.FilterSet):
 
     class Meta:
         model = Recipe
-        fields = ("tags", "author", "is_favorited", "is_in_shopping_cart")
+        fields = ('tags', 'author', 'is_favorited', 'is_in_shopping_cart')
 
 
 class IngredientFilter(filters.FilterSet):
