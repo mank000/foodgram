@@ -12,7 +12,8 @@ from rest_framework.validators import UniqueValidator
 from foodgram.const import MAX_LENGTH_EMAIL, MAX_LENGTH_SERIALIZERS
 from users.models import Favorite, ShoppingCart, Subscribe
 from .models import Ingredient, Recipe, RecipeToIngredient, Tag
-from .utils import get_recipes_for_serializer, get_is_subscribet_for_serizlizer
+from .utils import get_is_subscribet_for_serizlizer, get_recipes_for_serializer
+
 User = get_user_model()
 
 

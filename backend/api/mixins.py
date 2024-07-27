@@ -1,8 +1,8 @@
 from rest_framework.pagination import PageNumberPagination
 
 from .models import Ingredient, Recipe, Tag
-from .serializers import IngredientSerializer, RecipeSerializer, TagSerializer
 from .permissions import IsAuthorOrReadOnly
+from .serializers import IngredientSerializer, RecipeSerializer, TagSerializer
 
 
 class TagMixin:

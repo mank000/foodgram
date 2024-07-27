@@ -1,18 +1,21 @@
 from collections import defaultdict
-from django.shortcuts import get_object_or_404
+from io import BytesIO
+
 import pyshorteners
 from django.db.models import Sum
+from django.shortcuts import get_object_or_404
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate
-from rest_framework.response import Response
 from rest_framework import status
-from .models import Recipe, RecipeToIngredient
+from rest_framework.response import Response
+
 from users.models import Subscribe
-from io import BytesIO
+from .models import Recipe, RecipeToIngredient
 from .serializers import RecipeShortReadSerializer
+
 DOT_SYMBOL = u'\u2022'
 
 

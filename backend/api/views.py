@@ -15,9 +15,8 @@ from .serializers import (AvatarSerializer, FavoriteSerializer,
                           ShoppingCartSerializer, SubscribeSerializer,
                           UserProfileSerializer,
                           UserProfileSerializerWithRecipes)
-from .utils import (create_short_link, generate_shopping_list,
-                    add_recipe_to_list, remove_recipe_from_list)
-
+from .utils import (add_recipe_to_list, create_short_link,
+                    generate_shopping_list, remove_recipe_from_list)
 
 User = get_user_model()
 
