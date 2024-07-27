@@ -2,24 +2,25 @@ from django.contrib.auth import get_user_model
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import generics, mixins, permissions, status
+from rest_framework import generics, mixins, permissions, status, viewsets
+from rest_framework.pagination import (LimitOffsetPagination,
+                                       PageNumberPagination)
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.pagination import PageNumberPagination
+
 from users.models import Favorite, ShoppingCart, Subscribe
 from .filters import IngredientFilter, RecipeFilter
 from .mixins import IngredientMixin
 from .models import Recipe, RecipeToIngredient, Tag
+from .permissions import IsAuthenticatedOrAuthor
 from .serializers import (AvatarSerializer, FavoriteSerializer,
-                          ShoppingCartSerializer, SubscribeSerializer,
+                          RecipeSerializer, ShoppingCartSerializer,
+                          SubscribeSerializer, TagSerializer,
                           UserProfileSerializer,
-                          UserProfileSerializerWithRecipes,
-                          RecipeSerializer, TagSerializer)
+                          UserProfileSerializerWithRecipes)
 from .utils import (add_recipe_to_list, create_short_link,
                     generate_shopping_list, remove_recipe_from_list)
-from rest_framework import viewsets
-from .permissions import IsAuthenticatedOrAuthor
-from rest_framework.pagination import LimitOffsetPagination
+
 User = get_user_model()
 
 

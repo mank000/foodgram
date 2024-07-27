@@ -1,10 +1,10 @@
 from django.contrib import admin
 from django.urls import include, path
+
 from api.views import (AvatarView, FavoriteView, GetIngredientDetailView,
                        GetIngredientsListView, GetRecipeLinkView,
                        RecipeViewSet, ShoppingCartView, SubscribeViewSet,
-                       UserProfile, TagViewSet)
-
+                       TagViewSet, UserProfile)
 
 Tags = [
     path('', TagViewSet.as_view({'get': 'list'}), name='tag-list'),
