@@ -103,3 +103,14 @@ def remove_recipe_from_list(model, user, recipe_id):
         return Response(status=status.HTTP_400_BAD_REQUEST)
     item.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def process_ingredients(recipe, ingredients_data):
+    recipe_ingredients = [
+        RecipeToIngredient(
+            recipe=recipe,
+            ingredient_id=ingredient['id'],
+            amount=ingredient['amount']
+        ) for ingredient in ingredients_data
+    ]
+    RecipeToIngredient.objects.bulk_create(recipe_ingredients)

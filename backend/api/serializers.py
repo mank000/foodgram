@@ -11,7 +11,8 @@ from foodgram.const import MAX_LENGTH_EMAIL, MAX_LENGTH_SERIALIZERS
 from users.models import Favorite, ShoppingCart, Subscribe
 from .fields import Base64ImageField
 from .models import Ingredient, Recipe, RecipeToIngredient, Tag
-from .utils import get_is_subscribet_for_serizlizer, get_recipes_for_serializer
+from .utils import (get_is_subscribet_for_serizlizer,
+                    get_recipes_for_serializer, process_ingredients)
 
 User = get_user_model()
 
@@ -263,14 +264,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             recipe.tags.set(tags_data)
 
         if ingredients_data:
-            recipe_ingredients = [
-                RecipeToIngredient(
-                    recipe=recipe,
-                    ingredient_id=ingredient['id'],
-                    amount=ingredient['amount']
-                ) for ingredient in ingredients_data
-            ]
-            RecipeToIngredient.objects.bulk_create(recipe_ingredients)
+            process_ingredients(recipe, ingredients_data)
 
         return recipe
 
@@ -278,8 +272,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         ingredients_data = validated_data.pop('ingredients')
         tags_data = validated_data.pop('tags')
 
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+        instance = super().update(instance, validated_data)
 
         instance.save()
 
@@ -289,14 +282,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         if ingredients_data is not None:
             RecipeToIngredient.objects.filter(recipe=instance).delete()
 
-            recipe_ingredients = [
-                RecipeToIngredient(
-                    recipe=instance,
-                    ingredient_id=ingredient['id'],
-                    amount=ingredient['amount']
-                ) for ingredient in ingredients_data
-            ]
-            RecipeToIngredient.objects.bulk_create(recipe_ingredients)
+            process_ingredients(instance, ingredients_data)
 
         return instance
 
