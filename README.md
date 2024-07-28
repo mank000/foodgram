@@ -1,8 +1,13 @@
+
 # Foodgram
+
 Foodgram - онлайн сервис для публикации рецептов, подписки на других пользователей.
+
 ### Как развернуть на удаленном сервере?
-Для начала необходимо заполнить файл .env 
-Структура выглядит так: 
+
+Для начала необходимо заполнить файл .env
+Структура выглядит так:
+
 ``
 POSTGRES_DB=
 ``
@@ -27,11 +32,31 @@ SECRET_KEY=
 ``
 DEBUG=
 ``
+
 Далее необходимо использовать Docker из корневой папки:
 ``
 sudo docker compose up
-`` 
+``
 Далее необходимо загрузить список ингредиентов:
 ``
 python manage.py upload_data
 ``
+
+Далее, вы сможете зайти на сайт по адресу http://localhost:8000
+
+Ссылка на сайт: https://manko.hopto.org/
+```
+username: reviewer
+email: reviewer@mail.ru
+password: reviewer12
+```
+
+## Стек
+- python==3.9
+- Django==3.2.15
+- djangorestframework==3.12.4
+- Pillow==9.3.0
+- reportlab==4.2.2
+- psycopg2-binary==2.9.3
+## Автор
+Артем Козьмин
