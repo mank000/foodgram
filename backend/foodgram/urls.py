@@ -1,10 +1,9 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from api.views import (AvatarView, FavoriteView, GetIngredientDetailView,
-                       GetIngredientsListView, GetRecipeLinkView,
-                       RecipeViewSet, ShoppingCartView, SubscribeViewSet,
-                       TagViewSet, UserProfile)
+from api.views import (AvatarView, FavoriteView, GetRecipeLinkView,
+                       IngredientViewSet, RecipeViewSet, ShoppingCartView,
+                       SubscribeViewSet, TagViewSet, UserProfile)
 
 Tags = [
     path('', TagViewSet.as_view({'get': 'list'}), name='tag-list'),
@@ -13,9 +12,13 @@ Tags = [
 ]
 
 Ingredients = [
-    path('', GetIngredientsListView.as_view(), name='ingredients-list'),
+    path('', IngredientViewSet.as_view({
+        'get': 'list'
+    }), name='ingredients-list'),
     path(
-        '<int:id>/', GetIngredientDetailView.as_view(), name='get-ingredient'
+        '<int:id>/', IngredientViewSet.as_view({
+            'get': 'retrieve'
+        }), name='get-ingredient'
     ),
 ]
 
@@ -52,7 +55,7 @@ Recipes = [
          RecipeViewSet.as_view(
              {'get': 'retrieve',
               'put': 'update',
-              'patch': 'partial_update',
+              'patch': 'update',
               'delete': 'destroy'}),
          name='recipe-detail'),
 ]

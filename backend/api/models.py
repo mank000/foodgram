@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
+from django.db.models import UniqueConstraint
 
 from foodgram.const import MAX_LENGTH, MAX_LENGTH_TAG, MIN_TIME_TO_COOK
 
@@ -63,17 +64,17 @@ class Recipe(models.Model):
         verbose_name='Ингредиенты',
         blank=False,
         through='RecipeToIngredient',
-        related_name='recipe',
+        related_name='recipes',
     )
     tags = models.ManyToManyField(
-        Tag, verbose_name='Теги', blank=False, related_name='tags'
+        Tag, verbose_name='Теги', blank=False, related_name='recipes'
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         verbose_name='Aвтор',
         blank=False,
-        related_name='recipe',
+        related_name='recipes',
     )
     image = models.ImageField(
         verbose_name='Фото',
@@ -128,4 +129,7 @@ class RecipeToIngredient(models.Model):
     )
 
     class Meta:
-        unique_together = ['recipe', 'ingredient']
+        constraints = [
+            UniqueConstraint(fields=['recipe', 'ingredient'],
+                             name='unique_recipe_ingredient')
+        ]

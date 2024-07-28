@@ -10,13 +10,12 @@ from rest_framework.views import APIView
 
 from users.models import Favorite, ShoppingCart, Subscribe
 from .filters import IngredientFilter, RecipeFilter
-from .mixins import IngredientMixin
-from .models import Recipe, RecipeToIngredient, Tag
+from .models import Ingredient, Recipe, Tag
 from .permissions import IsAuthenticatedOrAuthor
 from .serializers import (AvatarSerializer, FavoriteSerializer,
-                          RecipeSerializer, ShoppingCartSerializer,
-                          SubscribeSerializer, TagSerializer,
-                          UserProfileSerializer,
+                          IngredientSerializer, RecipeSerializer,
+                          ShoppingCartSerializer, SubscribeSerializer,
+                          TagSerializer, UserProfileSerializer,
                           UserProfileSerializerWithRecipes)
 from .utils import (add_recipe_to_list, create_short_link,
                     generate_shopping_list, remove_recipe_from_list)
@@ -54,16 +53,12 @@ class TagViewSet(viewsets.ModelViewSet):
     lookup_field = 'id'
 
 
-class GetIngredientsListView(IngredientMixin, generics.ListAPIView):
-    """ßПолучение списка ингредиентов."""
-
+class IngredientViewSet(viewsets.ModelViewSet):
+    queryset = Ingredient.objects.all()
+    pagination_class = None
+    serializer_class = IngredientSerializer
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
-
-
-class GetIngredientDetailView(IngredientMixin, generics.RetrieveAPIView):
-    """Получение списка ингредиентов."""
-
     lookup_field = 'id'
 
 
@@ -74,58 +69,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
     permission_classes = [IsAuthenticatedOrAuthor]
     pagination_class = PageNumberPagination
-
-    def perform_create(self, serializer):
-        ingredients_data = self.request.data.pop('ingredients', [])
-        tags_data = self.request.data.pop('tags', [])
-        recipe = serializer.save(author=self.request.user)
-        recipe.tags.set(tags_data)
-
-        recipe_ingredients = [
-            RecipeToIngredient(
-                recipe=recipe,
-                ingredient_id=ingredient['id'],
-                amount=ingredient['amount']
-            ) for ingredient in ingredients_data
-        ]
-        RecipeToIngredient.objects.bulk_create(recipe_ingredients)
-
-    def update(self, request, *args, **kwargs):
-        user = request.user
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-
-        if user != instance.author:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-
-        serializer = self.get_serializer(
-            instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        serializer_data = serializer.validated_data
-        ingredients_data = serializer_data.pop('ingredients', [])
-        tags_data = serializer_data.pop('tags', [])
-
-        self.perform_update(serializer)
-        instance.tags.set(tags_data)
-
-        RecipeToIngredient.objects.filter(recipe=instance).delete()
-        recipe_ingredients = [
-            RecipeToIngredient(
-                recipe=instance,
-                ingredient_id=ingredient['id'],
-                amount=ingredient['amount']
-            ) for ingredient in ingredients_data
-        ]
-        RecipeToIngredient.objects.bulk_create(recipe_ingredients)
-
-        return Response(serializer.data)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if request.user != instance.author:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class FavoriteView(APIView):

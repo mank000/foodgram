@@ -1,8 +1,6 @@
-import base64
 import re
 
 from django.contrib.auth import get_user_model
-from django.core.files.base import ContentFile
 from django.db.models import F
 from djoser.serializers import UserCreateSerializer
 from rest_framework import serializers
@@ -11,6 +9,7 @@ from rest_framework.validators import UniqueValidator
 
 from foodgram.const import MAX_LENGTH_EMAIL, MAX_LENGTH_SERIALIZERS
 from users.models import Favorite, ShoppingCart, Subscribe
+from .fields import Base64ImageField
 from .models import Ingredient, Recipe, RecipeToIngredient, Tag
 from .utils import get_is_subscribet_for_serizlizer, get_recipes_for_serializer
 
@@ -138,17 +137,6 @@ class UserProfileSerializerWithRecipes(serializers.ModelSerializer):
         return get_is_subscribet_for_serizlizer(self, obj)
 
 
-class Base64ImageField(serializers.ImageField):
-
-    def to_internal_value(self, data):
-
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
-        return super().to_internal_value(data)
-
-
 class AvatarSerializer(serializers.ModelSerializer):
 
     avatar = Base64ImageField(
@@ -266,22 +254,51 @@ class RecipeSerializer(serializers.ModelSerializer):
         return RecipeReadSerializer(instance, context=self.context).data
 
     def create(self, validated_data):
+        request = self.context['request']
         ingredients_data = validated_data.pop('ingredients')
         tags_data = validated_data.pop('tags')
-        recipe = Recipe.objects.create(**validated_data)
+        recipe = Recipe.objects.create(author=request.user, **validated_data)
 
-        recipe.tags.set(tags_data)
+        if tags_data:
+            recipe.tags.set(tags_data)
 
-        recipe_ingredients = [
-            RecipeToIngredient(
-                recipe=recipe,
-                ingredient_id=ingredient['id'],
-                amount=ingredient['amount']
-            ) for ingredient in ingredients_data
-        ]
-        RecipeToIngredient.objects.bulk_create(recipe_ingredients)
+        if ingredients_data:
+            recipe_ingredients = [
+                RecipeToIngredient(
+                    recipe=recipe,
+                    ingredient_id=ingredient['id'],
+                    amount=ingredient['amount']
+                ) for ingredient in ingredients_data
+            ]
+            RecipeToIngredient.objects.bulk_create(recipe_ingredients)
 
         return recipe
+
+    def update(self, instance, validated_data):
+        ingredients_data = validated_data.pop('ingredients')
+        tags_data = validated_data.pop('tags')
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if tags_data is not None:
+            instance.tags.set(tags_data)
+
+        if ingredients_data is not None:
+            RecipeToIngredient.objects.filter(recipe=instance).delete()
+
+            recipe_ingredients = [
+                RecipeToIngredient(
+                    recipe=instance,
+                    ingredient_id=ingredient['id'],
+                    amount=ingredient['amount']
+                ) for ingredient in ingredients_data
+            ]
+            RecipeToIngredient.objects.bulk_create(recipe_ingredients)
+
+        return instance
 
 
 class UserRecipeReadSerializer(serializers.ModelSerializer):

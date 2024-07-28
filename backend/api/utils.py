@@ -70,7 +70,10 @@ def get_recipes_for_serializer(self, obj):
             recipes_limit = int(recipes_limit)
             recipes = recipes[:recipes_limit]
         except ValueError:
-            pass
+            return Response(
+                {'Ошибка': 'Не правильно задано число limit'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
     return recipes
 
 
