@@ -14,13 +14,16 @@ class Command(BaseCommand):
         csv_file_path = os.path.join(base_dir, 'data', 'ingredients.csv')
 
         with open(csv_file_path, mode='r', encoding='utf-8') as csv_file:
-            csv_reader = csv.DictReader(csv_file)
+            csv_reader = csv.DictReader(
+                csv_file,
+                delimiter=',', fieldnames=['name', 'measurement_unit'])
 
             for row in csv_reader:
-                try:
-                    ingredient_name = row['name']
-                    measurement_unit = row['measurement_unit']
 
+                ingredient_name = row['name']
+                measurement_unit = row['measurement_unit']
+
+                try:
                     Ingredient.objects.create(
                         name=ingredient_name,
                         measurement_unit=measurement_unit,
